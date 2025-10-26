@@ -1,135 +1,140 @@
-🧠 ChurnVision — Previsão de Churn (Regras + Machine Learning)
+🧠 ChurnVision — Predicción de Churn (Reglas + Machine Learning)
 
-Projeto para estimar o risco de churn por cliente, combinando:
+Proyecto para estimar el riesgo de churn (cancelación) por cliente, combinando:
 
-1️⃣ Score baseado em regras — recência, tendência, momento de queda, ticket médio e NPS
-2️⃣ Modelo supervisionado (Logistic Regression) — pipeline com threshold otimizado, priorizando Recall / F2-score
+1️⃣ Score basado en reglas — recencia, tendencia, momento de caída, ticket medio y NPS
+2️⃣ Modelo supervisado (Regresión Logística) — pipeline con umbral optimizado, priorizando Recall / F2-score
 
-🎯 Saída principal: clientes_risco_final.csv contendo o risco final de churn por cliente.
+🎯 Salida principal: clientes_riesgo_final.csv que contiene el riesgo final de churn por cliente.
 
-🧩 Estrutura do Projeto
-previsao_churn/
+🧩 Estructura del Proyecto
+
+prevision_churn/
 ├─ ChurnVision.ipynb          # Notebook principal
-├─ *.xlsx                     # Bases mensais (ano, mes, Contagem, etc.)
-├─ cancelados.xlsx            # Histórico de cancelamentos
+├─ *.xlsx                     # Bases mensuales (año, mes, Conteo, etc.)
+├─ cancelados.xlsx            # Histórico de cancelaciones
 ├─ NPS.xlsx                   # Notas de NPS por cliente
 ├─ tkt_medio/
-│  └─ ticket_medio.csv        # Ticket médio por cliente
-└─ clientes_risco_final.csv   # Gerado ao final da execução
+│  └─ ticket_medio.csv        # Ticket medio por cliente
+└─ clientes_riesgo_final.csv  # Generado al final de la ejecución
 
-⚙️ Parâmetros Principais (configuráveis no topo do script)
-# Janelas de cálculo
-N_RECENT = 3           # janelas recentes (média recente)
-N_BASE   = 6           # janela base para comparação
-CAP_DIAS = 180         # limite máximo para recência (dias)
-GAMMA    = 0.7         # suavização da normalização (potência)
 
-# Pesos e ajustes
+⚙️ Parámetros Principales (configurables al inicio del script)
+
+# Ventanas de cálculo
+N_RECENT = 3           # ventanas recientes (media reciente)
+N_BASE   = 6           # ventana base para comparación
+CAP_DIAS = 180         # límite máximo de recencia (días)
+GAMMA    = 0.7         # suavización de la normalización (potencia)
+
+# Pesos y ajustes
 W_MOMENTO, W_TEND, W_REC = 0.50, 0.35, 0.15
-ALPHA = 0.5               # mistura entre risco_raw e ranking percentual
+ALPHA = 0.5               # mezcla entre riesgo_raw y ranking porcentual
 INFLUENCIA_TICKET = 0.15
 W_NPS = 0.15
 NEUTRO_NPS = 0.30
 
-# Rotulagem e modelo
-K_PRAZO_MESES = 2          # janela de rotulagem à frente (em meses)
-TARGET_RECALL = 0.40       # recall mínimo desejado
+# Etiquetado y modelo
+K_PRAZO_MESES = 2          # ventana de etiquetado hacia adelante (en meses)
+TARGET_RECALL = 0.40       # recall mínimo deseado
 THR_GRID = np.linspace(0.20, 0.60, 21)
 
-📄 Estrutura Esperada das Bases
-Arquivo	Campos	Observações
-Bases mensais (.xlsx)	CardCode, ano, mes, Contagem, created, Start	Contagem = medida de uso/atividade
-ticket_medio.csv	CardCode, TicketMedio	Usado para peso de valor do cliente
-NPS.xlsx	CardCode, NPS	Renomeado internamente para nota_nps
-cancelados.xlsx	CardCode, dt_cancelamento, dt_aquisicao	Data mais antiga usada por cliente
 
-Campos textuais são stripados e as colunas de datas/números são convertidas com errors='coerce'.
+📄 Estructura Esperada de las Bases
 
-🧠 Lógica de Funcionamento
-1️⃣ Painel Mensal
+Archivo	Campos	Observaciones
+Bases mensuales (.xlsx)	CardCode, año, mes, Conteo, created, Start	Conteo = medida de uso/actividad
+ticket_medio.csv	CardCode, TicketMedio	Usado para ponderar el valor del cliente
+NPS.xlsx	CardCode, NPS	Renombrado internamente como nota_nps
+cancelados.xlsx	CardCode, dt_cancelacion, dt_adquisicion	Se usa la fecha más antigua por cliente
 
-Cria uma série contínua CardCode x mês, preenchendo meses ausentes com Contagem=0.
-Calcula os seguintes sinais de comportamento:
+Los campos de texto se limpian con strip y las columnas de fechas/números se convierten con errors='coerce'.
 
-Tendência (slope relativo)
+🧠 Lógica de Funcionamiento
 
-Momento de queda (média recente vs base)
+1️⃣ Panel Mensual
+Crea una serie continua CardCode x mes, rellenando los meses faltantes con Conteo = 0.
+Calcula las siguientes señales de comportamiento:
 
-Recência (dias sem uso)
+Tendencia (slope relativo)
 
-Engajamento (acessos, dias ativos, tempo de uso)
+Momento de caída (media reciente vs base)
 
-2️⃣ Score por Regras
+Recencia (días sin uso)
 
-Normaliza os sinais com MinMaxScaler e aplica potência GAMMA.
+Engagement (accesos, días activos, tiempo de uso)
 
-Combina pesos W_MOMENTO, W_TEND, W_REC.
+2️⃣ Score por Reglas
 
-Faz blend com ranking percentual (ALPHA).
+Normaliza las señales con MinMaxScaler y aplica la potencia GAMMA.
 
-Ajusta impacto de Ticket Médio e NPS.
+Combina los pesos W_MOMENTO, W_TEND, W_REC.
 
-Classifica em: Baixo / Médio / Alto Risco.
+Mezcla con ranking porcentual (ALPHA).
 
-3️⃣ Modelo Supervisionado (opcional)
+Ajusta el impacto del Ticket Medio y del NPS.
 
-Gera rótulo de churn se o cliente cancelar até K_PRAZO_MESES após o mês de referência.
+Clasifica en: Bajo / Medio / Alto Riesgo.
 
-Treina Logistic Regression com pipeline:
+3️⃣ Modelo Supervisado (opcional)
 
+Genera etiqueta de churn si el cliente cancela dentro de K_PRAZO_MESES posteriores al mes de referencia.
+
+Entrena Logistic Regression con el pipeline:
 SimpleImputer → StandardScaler → LogisticRegression
 
+Prueba el uso de SMOTE para balancear clases.
 
-Testa uso de SMOTE para balanceamento.
+Busca el umbral óptimo en la cuadrícula THR_GRID, priorizando Recall mediante el F2-score.
 
-Busca o threshold ótimo na grade THR_GRID, priorizando Recall via F2-score.
+📈 Interpretación de los Resultados
 
-📈 Interpretação dos Resultados
-Coluna	Significado
-nivel_risco_regra	Risco categórico (Regra)
-nivel_risco_ml	Risco categórico (Modelo)
-comparativo_dif	Diferença entre risco via ML e via regra
-risco_churn_final_regra	Score final de risco (Regra)
-risco_ml	Score final de risco (Modelo)
+Columna	Significado
+nivel_riesgo_regla	Riesgo categórico (Regla)
+nivel_riesgo_ml	Riesgo categórico (Modelo)
+comparativo_dif	Diferencia entre riesgo vía ML y vía regla
+riesgo_churn_final_regra	Score final de riesgo (Regla)
+riesgo_ml	Score final de riesgo (Modelo)
 
-🧩 Use nivel_risco_ml quando o modelo supervisionado estiver ativo.
-Caso contrário, utilize nivel_risco_regra.
+🧩 Usa nivel_riesgo_ml cuando el modelo supervisado esté activo.
+De lo contrario, utiliza nivel_riesgo_regla.
 
-comparativo_dif = risco_ml - risco_churn_final_regra → mostra divergências entre o modelo e a regra.
+comparativo_dif = riesgo_ml - riesgo_churn_final_regra → muestra divergencias entre el modelo y la regla.
 
-🧪 Validação e Métricas
+🧪 Validación y Métricas
 
-Validação temporal (holdout dos últimos ~3 meses) ou train_test_split (fallback).
+Validación temporal (holdout de los últimos ~3 meses) o train_test_split (alternativo).
+Métricas evaluadas:
 
-Métricas avaliadas:
+Exactitud (Accuracy)
 
-Acurácia
-
-Precisão
+Precisión (Precision)
 
 Recall
 
 F1-score
 
-Matriz de confusão
+Matriz de confusión
 
-Resultados e métricas são exibidos no console após gerar clientes_risco_final.csv.
+Los resultados y métricas se muestran en consola después de generar clientes_riesgo_final.csv.
 
-✨ Principais Destaques
+✨ Puntos Destacados
 
-✅ Série temporal contínua por cliente (preenche meses sem uso)
-✅ Cálculo de sinais robustos: tendência, momento de queda, recência e engajamento
-✅ Integração de Ticket Médio e NPS
-✅ Modelo supervisionado com imputação, padronização, SMOTE e otimização de limiar
-✅ Exportação automática de métricas e risco final por cliente
+✅ Serie temporal continua por cliente (rellena meses sin uso)
+✅ Cálculo robusto de señales: tendencia, momento de caída, recencia y engagement
+✅ Integración de Ticket Medio y NPS
+✅ Modelo supervisado con imputación, estandarización, SMOTE y optimización de umbral
+✅ Exportación automática de métricas y riesgo final por cliente
 
-🧾 Exemplo de Saída (clientes_risco_final.csv)
-CardCode	risco_churn_final_regra	nivel_risco_regra	risco_ml	nivel_risco_ml	comparativo_dif
-C001	0.23	Baixo	0.31	Médio	0.08
+🧾 Ejemplo de Salida (clientes_riesgo_final.csv)
+
+CardCode	riesgo_churn_final_regra	nivel_riesgo_regla	riesgo_ml	nivel_riesgo_ml	comparativo_dif
+C001	0.23	Bajo	0.31	Medio	0.08
 C002	0.67	Alto	0.59	Alto	-0.08
-C003	0.45	Médio	0.20	Baixo	-0.25
+C003	0.45	Medio	0.20	Bajo	-0.25
+
 🧑‍💻 Autor
 
 Alisson Silva
-📍 Analista de Dados | Projeto: ChurnVision
+📍 Analista de Datos | Proyecto: ChurnVision
 🔗 GitHub: alisson-silva92/ChurnVision
